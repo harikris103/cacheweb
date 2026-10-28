@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Caching Explained – Real-World Cases</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--ink:#1e2433;--mute:#5d6578;--line:#e1e5ee;--acc:#4f46e5;--hit:#16a34a;--miss:#dc2626;--hitbg:#dcfce7;--missbg:#fee2e2;--warn:#fef9c3;--info:#dbeafe;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1320;--card:#181d2f;--ink:#eef0f7;--mute:#a1a9bf;--line:#2b3250;--acc:#818cf8;--hit:#4ade80;--miss:#f87171;--hitbg:#12361f;--missbg:#3d1717;--warn:#3a3512;--info:#142a4a}}
+:root[data-theme="dark"]{--bg:#0f1320;--card:#181d2f;--ink:#eef0f7;--mute:#a1a9bf;--line:#2b3250;--acc:#818cf8;--hit:#4ade80;--miss:#f87171;--hitbg:#12361f;--missbg:#3d1717;--warn:#3a3512;--info:#142a4a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:18px 16px 30px}
+h1{margin:0;font-size:clamp(22px,4vw,32px)}
+.sub{color:var(--mute);margin:2px 0 14px}
+input[type=radio]{position:absolute;opacity:0;pointer-events:none}
+nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}
+nav label{white-space:nowrap;padding:8px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line);cursor:pointer;font-weight:600;font-size:14px}
+#t1:checked~nav [for=t1],#t2:checked~nav [for=t2],#t3:checked~nav [for=t3],#t4:checked~nav [for=t4],#t5:checked~nav [for=t5]{background:var(--acc);color:#fff;border-color:var(--acc)}
+.panel{display:none;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:10px}
+#t1:checked~.panels #p1,#t2:checked~.panels #p2,#t3:checked~.panels #p3,#t4:checked~.panels #p4,#t5:checked~.panels #p5{display:block}
+h2{margin:0 0 8px;font-size:21px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.box{border-radius:12px;padding:12px 14px;border:1px solid var(--line)}
+.fridge{background:var(--hitbg)}.market{background:var(--missbg)}
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:15px}
+td,th{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--mute);font-weight:600}
+.lane{margin:14px 0}
+.lane b{display:block;margin-bottom:6px}
+.track{position:relative;height:56px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.node{position:absolute;top:50%;transform:translate(-50%,-50%);padding:4px 10px;border-radius:10px;font-size:13px;font-weight:700;color:#1e2433}
+.n-user{left:8%;background:var(--info)}.n-cache{left:50%;background:var(--hitbg);color:var(--hit)}.n-db{left:92%;background:var(--missbg);color:var(--miss)}
+.dot{position:absolute;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%}
+.hitdot{background:var(--hit);animation:hit 2.4s ease-in-out infinite}
+.missdot{background:var(--miss);animation:miss 6s ease-in-out infinite}
+@keyframes hit{0%{left:8%}30%,45%{left:50%}75%,100%{left:8%}}
+@keyframes miss{0%{left:8%}16%,22%{left:50%}45%,55%{left:92%}78%,84%{left:50%}100%{left:8%}}
+.bars div{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:14px}
+.bars span.l{width:110px;flex:none}
+.bar{height:20px;border-radius:6px;transform-origin:left;animation:grow 1.4s ease-out both}
+.b1{width:1%;min-width:6px;background:var(--hit)}.b2{width:100%;background:var(--miss)}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.cases{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.case{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--bg);transition:transform .2s}
+.case:hover{transform:translateY(-3px)}
+.case .ic{font-size:26px}
+.case h3{margin:2px 0 4px;font-size:16px}
+.case p{margin:3px 0;font-size:14px;color:var(--mute)}
+.case p b{color:var(--ink)}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--hitbg);color:var(--hit)}
+.layers{display:flex;flex-direction:column;gap:6px;align-items:center;margin-top:10px}
+.layers div{padding:10px;border-radius:10px;text-align:center;font-weight:600;font-size:14px;color:#1e2433}
+.l1{width:40%;background:#bbf7d0}.l2{width:55%;background:#bfdbfe}.l3{width:70%;background:#fde68a}.l4{width:85%;background:#fecaca}.l5{width:100%;background:#e9d5ff}
+.layers small{font-weight:400;display:block}
+ol li{margin:6px 0}
+.warn{background:var(--warn);border-radius:12px;padding:10px 14px;margin-top:12px;font-size:14px}
+@media(max-width:640px){.two{grid-template-columns:1fr}.layers div{width:100%!important}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>⚡ Caching Explained</h1>
+<p class="sub">A quick seminar: what it is, why it’s fast, and where you already use it every day.</p>
+
+<input type="radio" name="t" id="t1" checked><input type="radio" name="t" id="t2"><input type="radio" name="t" id="t3"><input type="radio" name="t" id="t4"><input type="radio" name="t" id="t5">
+<nav>
+<label for="t1">1 · What is it?</label><label for="t2">2 · Hit vs Miss</label><label for="t3">3 · Real-world cases</label><label for="t4">4 · Cache layers</label><label for="t5">5 · Summary</label>
+</nav>
+
+<div class="panels">
+
+<section class="panel" id="p1">
+<h2>What is Caching?</h2>
+<p><b>Caching</b> means keeping a copy of data you use often in a <b>fast place</b>, so you don’t repeat slow work again and again.</p>
+<div class="two">
+<div class="box fridge"><b>🧊 Cache = Fridge</b><br>Masala is already there. Takes 5 seconds. Fast and close, but small.</div>
+<div class="box market"><b>🛒 Database = Market</b><br>Walk to the shop, queue, come back. Takes 30 minutes. Big but slow.</div>
+</div>
+<table>
+<tr><th>Term</th><th>Meaning</th></tr>
+<tr><td><b>Cache Hit</b></td><td>Data found in cache → instant answer</td></tr>
+<tr><td><b>Cache Miss</b></td><td>Not found → fetch from database, then save a copy</td></tr>
+<tr><td><b>TTL</b></td><td>Time‑To‑Live: the copy auto‑expires after some time</td></tr>
+<tr><td><b>Eviction</b></td><td>Memory full → remove the least recently used data (LRU)</td></tr>
+<tr><td><b>Invalidation</b></td><td>Source data changed → delete the old copy</td></tr>
+</table>
+</section>
+
+<section class="panel" id="p2">
+<h2>Cache Hit vs Cache Miss (animated)</h2>
+<div class="lane"><b style="color:var(--hit)">✅ HIT – the request never reaches the database</b>
+<div class="track"><span class="node n-user">User</span><span class="node n-cache">Cache</span><span class="node n-db">DB</span><span class="dot hitdot"></span></div></div>
+<div class="lane"><b style="color:var(--miss)">❌ MISS – goes to DB, then the answer is saved in cache</b>
+<div class="track"><span class="node n-user">User</span><span class="node n-cache">Cache</span><span class="node n-db">DB</span><span class="dot missdot"></span></div></div>
+<h2 style="margin-top:18px">Speed difference</h2>
+<div class="bars">
+<div><span class="l">⚡ Cache (RAM)</span><span class="bar b1"></span><span>~1 ms</span></div>
+<div><span class="l">🗄️ Database</span><span class="bar b2"></span><span>~100–1500 ms</span></div>
+</div>
+<div class="warn">💡 The first visitor pays the price (miss). Everyone after them gets the fast path (hit) until the TTL expires.</div>
+</section>
+
+<section class="panel" id="p3">
+<h2>Where you already use caching</h2>
+<div class="cases">
+<div class="case"><div class="ic">🌐</div><h3>Web browser</h3><p><b>Cached:</b> images, CSS, JS of a site.</p><p><b>Why:</b> 2nd visit loads without re‑downloading.</p><span class="tag">Revisit = instant</span></div>
+<div class="case"><div class="ic">🎬</div><h3>Netflix / YouTube (CDN)</h3><p><b>Cached:</b> popular videos on servers near your city.</p><p><b>Why:</b> no need to stream from the US each time.</p><span class="tag">Less buffering</span></div>
+<div class="case"><div class="ic">📸</div><h3>Instagram / X feed</h3><p><b>Cached:</b> your timeline, like counts, profiles in Redis/Memcached.</p><p><b>Why:</b> millions open the app at once.</p><span class="tag">Millions of reads</span></div>
+<div class="case"><div class="ic">🍔</div><h3>Swiggy / Zomato</h3><p><b>Cached:</b> restaurant menus and ratings.</p><p><b>Why:</b> menus rarely change, but are viewed constantly.</p><span class="tag">Menus load fast</span></div>
+<div class="case"><div class="ic">🛍️</div><h3>Flipkart / Amazon sale</h3><p><b>Cached:</b> product pages, prices, “people viewing” counts.</p><p><b>Why:</b> Big Billion Days traffic would crash the DB.</p><span class="tag">Survives sale rush</span></div>
+<div class="case"><div class="ic">🚆</div><h3>IRCTC / ticket sites</h3><p><b>Cached:</b> train lists, station names, static pages.</p><p><b>Why:</b> keeps the DB free for real bookings.</p><span class="tag">DB protected</span></div>
+<div class="case"><div class="ic">🔎</div><h3>Google Search</h3><p><b>Cached:</b> results for popular queries.</p><p><b>Why:</b> thousands search the same thing daily.</p><span class="tag">Results in ms</span></div>
+<div class="case"><div class="ic">📡</div><h3>DNS</h3><p><b>Cached:</b> google.com → IP address, in phone and router.</p><p><b>Why:</b> skip the lookup every click.</p><span class="tag">Faster page start</span></div>
+<div class="case"><div class="ic">🔐</div><h3>Login, OTP &amp; UPI</h3><p><b>Cached:</b> sessions, OTP (expires in 5 min), attempt counters.</p><p><b>Why:</b> TTL auto‑deletes it, blocks spamming.</p><span class="tag">Security + speed</span></div>
+</div>
+</section>
+
+<section class="panel" id="p4">
+<h2>Caching happens at many layers</h2>
+<p>A request passes through several caches before it ever reaches the database:</p>
+<div class="layers">
+<div class="l1">📱 Browser cache <small>images, files on your device</small></div>
+<div class="l2">🌍 CDN cache <small>Cloudflare, Akamai, near your city</small></div>
+<div class="l3">🖥️ Application cache <small>Redis / Memcached</small></div>
+<div class="l4">🗃️ Database cache <small>query results, buffer pool</small></div>
+<div class="l5">💾 Database on disk <small>the slowest, the source of truth</small></div>
+</div>
+<div class="warn">⚠️ Famous joke: “There are only two hard things in computer science: cache invalidation and naming things.” Stale data is the cost of speed.</div>
+</section>
+
+<section class="panel" id="p5">
+<h2>Key Takeaways</h2>
+<ol>
+<li>Cache = a fast copy of slow data.</li>
+<li><b>Hit</b> is fast, <b>miss</b> is slow, and the first request is always a miss.</li>
+<li>Always set a <b>TTL</b> so old data cleans itself up.</li>
+<li>When the source data changes, <b>invalidate</b> the cache.</li>
+<li>Redis, the most popular app cache, is used by Twitter, Instagram, Swiggy and more.</li>
+</ol>
+<div class="box" style="margin-top:12px"><b>Cache‑aside logic in 4 lines</b><br>
+<code>1. Look in cache → found? return it (HIT)</code><br>
+<code>2. Not found? Ask the database (MISS)</code><br>
+<code>3. Save the answer in cache with a TTL</code><br>
+<code>4. Return the answer</code></div>
+<p style="text-align:center;font-size:20px;margin-top:16px"><b>Thank you! 🙋 Questions?</b></p>
+</section>
+
+</div>
+</div>
+</body>
+</html>
